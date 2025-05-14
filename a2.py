@@ -27,17 +27,8 @@ class DrMario:
         faller_cells = self.get_faller_cells()
         matched_cells = self.find_matches()
         
-        # Only print rows that have content or are needed for game display
-        max_content_row = 0
-        for r in range(self.rows):
-            if any(self.field[r][c] != ' ' for c in range(self.cols)) or \
-               any((r, c) in faller_cells for c in range(self.cols)):
-                max_content_row = r
-        
         # Always show at least 4 rows
-        max_content_row = max(3, max_content_row)
-        
-        for r in range(max_content_row + 1):
+        for r in range(4):
             line = '|'
             skip_next = False
             for c in range(self.cols):
@@ -169,10 +160,12 @@ class DrMario:
 
     def pass_time(self):
         if not self.faller:
+            # First check for matches
             matched = self.find_matches()
             if matched:
                 self.remove_matches(matched)
-                self.apply_gravity()
+            # Always apply gravity, even if there were no matches
+            self.apply_gravity()
             return
 
         r = self.faller['row']
@@ -209,7 +202,8 @@ class DrMario:
                 self.print_field()
                 # Then remove matches and apply gravity
                 self.remove_matches(matched)
-                self.apply_gravity()
+            # Always apply gravity after freezing, even if there were no matches
+            self.apply_gravity()
 
     def get_faller_cells(self):
         result = {}
@@ -268,21 +262,24 @@ class DrMario:
 
     def apply_gravity(self):
         for c in range(self.cols):
-            while True:
-                moved = False
-                for r in range(self.rows - 2, -1, -1):
-                    if self.field[r][c].isupper() and self.field[r+1][c] == ' ':
-                        self.field[r+1][c] = self.field[r][c]
-                        self.field[r][c] = ' '
-                        moved = True
-                if not moved:
+            # Move each piece down only one row per pass_time
+            # Start from second-to-last row and move up
+            for r in range(self.rows - 2, -1, -1):
+                # Only move uppercase cells (vitamins), not viruses
+                if self.field[r][c].isupper() and self.field[r + 1][c] == ' ':
+                    # Move the cell down one row
+                    self.field[r + 1][c] = self.field[r][c]
+                    self.field[r][c] = ' '
+                    # Only move one piece down one row per column
                     break
 
 def parse_line_content(line: str, cols: int) -> str:
     content = line.strip()
+    # Pad with spaces to match the required length
     while len(content) < cols:
         content += ' '
-    return content
+    # Truncate if too long
+    return content[:cols]
 
 def main():
     try:
@@ -308,18 +305,18 @@ def main():
         
         if is_interactive:
             print("Game initialized. Enter commands (press Ctrl+D or type 'Q' to quit):")
-            print("Commands:")
-            print("  Direct input - Enter content directly (e.g., 'R  r' or 'YyYy')")
-            print("  EMPTY - Clear the field")
-            print("  CONTENTS - Set field contents")
-            print("  F color1 color2 - Spawn a new faller")
-            print("  A - Rotate clockwise")
-            print("  B - Rotate counterclockwise")
-            print("  < - Move left")
-            print("  > - Move right")
-            print("  V row col color - Insert virus")
-            print("  Q - Quit")
-            print("  ENTER - Pass time")
+            # print("Commands:")
+            # print("  Direct input - Enter content directly (e.g., 'R  r' or 'YyYy')")
+            # print("  EMPTY - Clear the field")
+            # print("  CONTENTS - Set field contents")
+            # print("  F color1 color2 - Spawn a new faller")
+            # print("  A - Rotate clockwise")
+            # print("  B - Rotate counterclockwise")
+            # print("  < - Move left")
+            # print("  > - Move right")
+            # print("  V row col color - Insert virus")
+            # print("  Q - Quit")
+            # print("  ENTER - Pass time")
         
         empty_count = 0
         last_content_row = None
@@ -352,8 +349,7 @@ def main():
                         print(f"Enter {rows} lines of content:")
                     for _ in range(rows):
                         line = input().strip()
-                        if len(line) != cols:
-                            raise ValueError(f"Each line must be {cols} characters long")
+                        line = parse_line_content(line, cols)
                         lines.append(line)
                     game.set_field_contents(lines)
                     last_content_row = None
@@ -418,7 +414,6 @@ def main():
                     if is_interactive:
                         print(f"Unknown command: {command}")
             except Exception as e:
-                print(f"DEBUG - Error processing command: {e}")
                 if is_interactive:
                     print(f"Error: {e}")
                 pass
@@ -428,5 +423,36 @@ def main():
             print(f"Error: {e}")
         pass
 
+def test_game():
+    # Initialize game with test case
+    game = DrMario()
+    game.initialize(4, 4)
+    
+    # Set initial field contents
+    lines = [
+        '    ',  # Empty row
+        'R  r',  # R and r
+        '    ',  # Empty row
+        'YyYy'   # Row of viruses
+    ]
+    game.set_field_contents(lines)
+    
+    # Print initial state
+    print("Initial state:")
+    game.print_field()
+    
+    # First empty input (pass time)
+    print("\nAfter first empty input:")
+    game.pass_time()
+    game.print_field()
+    
+    # Second empty input (pass time)
+    print("\nAfter second empty input:")
+    game.pass_time()
+    game.print_field()
+
 if __name__ == '__main__':
-    main()
+    if len(sys.argv) > 1 and sys.argv[1] == '--test':
+        test_game()
+    else:
+        main()
