@@ -58,8 +58,12 @@ class DrMario:
                             line += f' {char}--{right_char} '
                         skip_next = True
                     elif self.faller['orientation'] == 'vertical':
-                        # Always use |R| format for vertical fallers
-                        line += f'|{char}|'
+                        if state == 'falling':
+                            line += f'[{char}]'
+                        elif state == 'landed':
+                            line += f'|{char}|'
+                        else:  # frozen
+                            line += f' {char} '
                     else:
                         line += f' {char} '
                 else:
@@ -120,10 +124,23 @@ class DrMario:
         }
 
     def rotate_faller(self, clockwise=True):
-        if self.faller and self.faller['orientation'] == 'horizontal':
+        if not self.faller:
+            return
+
+        if self.faller['orientation'] == 'horizontal':
+            # When rotating from horizontal to vertical
             self.faller['orientation'] = 'vertical'
-        elif self.faller and self.faller['orientation'] == 'vertical':
+            # Swap pieces for rotation
+            temp = self.faller['left']
+            self.faller['left'] = self.faller['right']
+            self.faller['right'] = temp
+        else:  # vertical
+            # When rotating from vertical to horizontal
             self.faller['orientation'] = 'horizontal'
+            # Swap pieces for rotation
+            temp = self.faller['left']
+            self.faller['left'] = self.faller['right']
+            self.faller['right'] = temp
 
     def move_faller(self, direction: int):
         if not self.faller:
@@ -132,13 +149,17 @@ class DrMario:
         new_col = self.faller['col'] + direction
         r = self.faller['row']
 
+        # Check wall collision first
+        if new_col < 0 or (self.faller['orientation'] == 'horizontal' and new_col + 1 >= self.cols) or \
+           (self.faller['orientation'] == 'vertical' and new_col >= self.cols):
+            return
+
+        # Then check for space availability
         if self.faller['orientation'] == 'horizontal':
-            if 0 <= new_col and new_col + 1 < self.cols and \
-               self.field[r][new_col] == ' ' and self.field[r][new_col + 1] == ' ':
+            if self.field[r][new_col] == ' ' and self.field[r][new_col + 1] == ' ':
                 self.faller['col'] = new_col
         elif self.faller['orientation'] == 'vertical':
-            if 0 <= new_col < self.cols and \
-               self.field[r][new_col] == ' ' and self.field[r - 1][new_col] == ' ':
+            if self.field[r][new_col] == ' ' and self.field[r - 1][new_col] == ' ':
                 self.faller['col'] = new_col
 
     def insert_virus(self, row: int, col: int, color: str):
@@ -161,7 +182,8 @@ class DrMario:
         if self.faller['orientation'] == 'horizontal':
             if r + 1 < self.rows and self.field[r + 1][c] == ' ' and self.field[r + 1][c + 1] == ' ':
                 can_fall = True
-        else:
+        else:  # vertical
+            # For vertical orientation, only need to check the bottom piece
             if r + 1 < self.rows and self.field[r + 1][c] == ' ':
                 can_fall = True
 
@@ -171,16 +193,24 @@ class DrMario:
             else:
                 self.faller['state'] = 'landed'
         elif self.faller['state'] == 'landed':
+            # Freeze the faller in place
             if self.faller['orientation'] == 'horizontal':
                 self.field[r][c] = self.faller['left']
                 self.field[r][c + 1] = self.faller['right']
-            else:
+            else:  # vertical
+                # For vertical orientation:
+                # - left piece is on top (r-1)
+                # - right piece is on bottom (r)
                 self.field[r - 1][c] = self.faller['left']
                 self.field[r][c] = self.faller['right']
             self.faller = None
 
+            # Check for matches immediately after freezing
             matched = self.find_matches()
             if matched:
+                # First display the matches
+                self.print_field()
+                # Then remove them and apply gravity
                 self.remove_matches(matched)
                 self.apply_gravity()
 
@@ -196,7 +226,11 @@ class DrMario:
         if self.faller['orientation'] == 'horizontal':
             result[(r, c)] = (self.faller['left'], state)
             result[(r, c + 1)] = (self.faller['right'], state)
-        else:
+        else:  # vertical
+            # For vertical orientation:
+            # - left piece is on top (r-1)
+            # - right piece is on bottom (r)
+            # Both pieces should be in the same column
             result[(r - 1, c)] = (self.faller['left'], state)
             result[(r, c)] = (self.faller['right'], state)
 
@@ -206,7 +240,7 @@ class DrMario:
         matched = set()
         faller_cells = self.get_faller_cells()
 
-        # Check for matches in the same row first
+        # Check for horizontal matches first (since they appear first in the example)
         for r in range(self.rows):
             for c in range(self.cols - 3):
                 ch = self.field[r][c]
@@ -215,7 +249,12 @@ class DrMario:
                 # Check for matching sequence of same color (case-insensitive)
                 if ch.upper() == self.field[r][c + 1].upper() == self.field[r][c + 2].upper() == self.field[r][c + 3].upper():
                     if not any((r, col) in faller_cells for col in [c, c + 1, c + 2, c + 3]):
-                        matched.update([(r, c), (r, c + 1), (r, c + 2), (r, c + 3)])
+                        # For viruses (lowercase), all four must be viruses to match
+                        if ch.islower():
+                            if all(self.field[r][col].islower() for col in [c, c + 1, c + 2, c + 3]):
+                                matched.update([(r, c), (r, c + 1), (r, c + 2), (r, c + 3)])
+                        else:
+                            matched.update([(r, c), (r, c + 1), (r, c + 2), (r, c + 3)])
 
         # Then check for vertical matches
         for c in range(self.cols):
@@ -230,12 +269,13 @@ class DrMario:
         return matched
 
     def remove_matches(self, matched: set):
-        # Remove all matched cells, including both R and Y in R--Y patterns
+        # Remove all matched cells
         for r, c in matched:
-            self.field[r][c] = ' '
-            # If this is an R cell and there's a Y next to it, remove the Y too
-            if self.field[r][c] == 'R' and c + 1 < self.cols and self.field[r][c+1] == 'Y':
-                self.field[r][c+1] = ' '
+            if self.field[r][c] == 'R' and c + 1 < self.cols and self.field[r][c + 1] == 'Y':
+                # For R-Y pattern, only remove R if it's matched
+                self.field[r][c] = ' '
+            else:
+                self.field[r][c] = ' '
 
     def apply_gravity(self):
         # Apply gravity to each column independently
@@ -245,8 +285,8 @@ class DrMario:
                 moved = False
                 # Start from second-to-last row and move up
                 for r in range(self.rows - 2, -1, -1):
-                    # Only move non-virus uppercase cells (capsule parts)
-                    if self.field[r][c] not in 'ryb ' and self.field[r+1][c] == ' ':
+                    # Only move uppercase cells (vitamins), not viruses
+                    if self.field[r][c].isupper() and self.field[r+1][c] == ' ':
                         # Move the cell down
                         self.field[r+1][c] = self.field[r][c]
                         self.field[r][c] = ' '

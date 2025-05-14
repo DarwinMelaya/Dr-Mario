@@ -134,7 +134,8 @@ def main():
                     game.rotate_faller(clockwise=True)
                     game.print_field()
                 elif command == 'B':
-                    game.rotate_faller(clockwise=False)
+                    # Make B rotate the same as A (clockwise)
+                    game.rotate_faller(clockwise=True)
                     game.print_field()
                 elif command in ['<', '>']:
                     direction = -1 if command == '<' else 1
