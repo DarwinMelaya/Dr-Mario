@@ -127,20 +127,33 @@ class DrMario:
         if not self.faller:
             return
 
+        r = self.faller['row']
+        c = self.faller['col']
+
+        # For horizontal to vertical, we need space above the current position
         if self.faller['orientation'] == 'horizontal':
             # When rotating from horizontal to vertical
-            self.faller['orientation'] = 'vertical'
-            # Swap pieces for rotation
-            temp = self.faller['left']
-            self.faller['left'] = self.faller['right']
-            self.faller['right'] = temp
+            if r-1 >= 0 and self.field[r-1][c] == ' ':
+                self.faller['orientation'] = 'vertical'
+                if clockwise:  # For clockwise rotation
+                    # Left piece goes on top
+                    temp = self.faller['left']
+                    self.faller['left'] = self.faller['right']
+                    self.faller['right'] = temp
+            else:
+                return
         else:  # vertical
-            # When rotating from vertical to horizontal
-            self.faller['orientation'] = 'horizontal'
-            # Swap pieces for rotation
-            temp = self.faller['left']
-            self.faller['left'] = self.faller['right']
-            self.faller['right'] = temp
+            # For vertical to horizontal, we need space to the right
+            if c + 1 < self.cols and self.field[r][c+1] == ' ':
+                # When rotating from vertical to horizontal
+                self.faller['orientation'] = 'horizontal'
+                if not clockwise:  # For counterclockwise rotation
+                    # Bottom piece goes on left
+                    temp = self.faller['left']
+                    self.faller['left'] = self.faller['right']
+                    self.faller['right'] = temp
+            else:
+                return
 
     def move_faller(self, direction: int):
         if not self.faller:
@@ -215,6 +228,7 @@ class DrMario:
                 self.apply_gravity()
 
     def get_faller_cells(self):
+        """Returns the coordinates of the faller cells."""
         result = {}
         if not self.faller:
             return result

@@ -85,7 +85,34 @@ def main():
                     game.set_field_contents(lines)
                     last_content_row = None
                     game.print_field()
-                # Handle direct content input like "R  r" or "YyYy"
+                elif command.startswith('F '):
+                    parts = command.split()
+                    if len(parts) != 3:
+                        raise ValueError("F command requires two colors (e.g., 'F R Y')")
+                    game.spawn_faller(parts[1], parts[2])
+                    empty_count = 0
+                    last_content_row = None
+                    game.print_field()
+                    if game.is_game_over:
+                        break
+                elif command == 'A':
+                    game.rotate_faller(clockwise=True)
+                    game.print_field()
+                elif command == 'B':
+                    game.rotate_faller(clockwise=False)
+                    game.print_field()
+                elif command in ['<', '>']:
+                    direction = -1 if command == '<' else 1
+                    game.move_faller(direction)
+                    game.print_field()
+                elif command.startswith('V '):
+                    parts = command.split()
+                    if len(parts) != 4:
+                        raise ValueError("V command requires row, col, and color (e.g., 'V 3 4 R')")
+                    game.insert_virus(int(parts[1]), int(parts[2]), parts[3])
+                    last_content_row = None
+                    game.print_field()
+                # Handle direct content input like "R  r" or "YyYy" AFTER checking for single-letter commands
                 elif all(c in 'RYBryb ' for c in command):
                     content = parse_line_content(command, cols)
                     current_field = [[''] * cols for _ in range(rows)]
@@ -120,38 +147,11 @@ def main():
                     
                     game.set_field_contents(lines)
                     game.print_field()
-                elif command.startswith('F '):
-                    parts = command.split()
-                    if len(parts) != 3:
-                        raise ValueError("F command requires two colors (e.g., 'F R Y')")
-                    game.spawn_faller(parts[1], parts[2])
-                    empty_count = 0
-                    last_content_row = None
-                    game.print_field()
-                    if game.is_game_over:
-                        break
-                elif command == 'A':
-                    game.rotate_faller(clockwise=True)
-                    game.print_field()
-                elif command == 'B':
-                    # Make B rotate the same as A (clockwise)
-                    game.rotate_faller(clockwise=True)
-                    game.print_field()
-                elif command in ['<', '>']:
-                    direction = -1 if command == '<' else 1
-                    game.move_faller(direction)
-                    game.print_field()
-                elif command.startswith('V '):
-                    parts = command.split()
-                    if len(parts) != 4:
-                        raise ValueError("V command requires row, col, and color (e.g., 'V 3 4 R')")
-                    game.insert_virus(int(parts[1]), int(parts[2]), parts[3])
-                    last_content_row = None
-                    game.print_field()
                 else:
                     if is_interactive:
                         print(f"Unknown command: {command}")
             except Exception as e:
+                print(f"DEBUG - Error processing command: {e}")
                 if is_interactive:
                     print(f"Error: {e}")
                 pass
