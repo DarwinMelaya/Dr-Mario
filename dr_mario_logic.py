@@ -58,7 +58,7 @@ class DrMario:
                     # Check for R Y pattern and handle it specially
                     if c + 1 < self.cols and self.field[r][c] == 'R' and self.field[r][c+1] == 'Y':
                         if (r, c) in matched_cells:
-                            line += f' *R*-Y '
+                            line += f' *R*-Y'
                         else:
                             if self.contains_virus() or not self.is_game_over:
                                 line += f' R--Y '
