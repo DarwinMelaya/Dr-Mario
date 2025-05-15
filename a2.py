@@ -68,13 +68,13 @@ class DrMario:
                         line += f' {char} '
                 else:
                     if (r, c) in matched_cells:
-                        if cell.isupper() and next_cell.isupper():
-                            line += f'*{cell}--{next_cell}*'
+                        if cell == 'R' and next_cell == 'Y':
+                            line += f'*{cell}*-{next_cell}'
                             skip_next = True
                         else:
                             line += f'*{cell}*'
                     else:
-                        if cell.isupper() and next_cell.isupper():
+                        if cell == 'R' and next_cell == 'Y':
                             line += f' {cell}--{next_cell} '
                             skip_next = True
                         else:
