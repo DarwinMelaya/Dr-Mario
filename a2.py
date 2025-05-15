@@ -20,8 +20,15 @@ class DrMario:
 
     def set_field_contents(self, lines: List[str]):
         for r in range(self.rows):
-            for c in range(self.cols):
-                self.field[r][c] = lines[r][c]
+            c = 0
+            while c < self.cols:
+                if c + 2 < self.cols and lines[r][c:c+3] == 'R--' and lines[r][c+3] == 'Y':
+                    self.field[r][c] = 'R'
+                    self.field[r][c+3] = 'Y'
+                    c += 4
+                else:
+                    self.field[r][c] = lines[r][c]
+                    c += 1
 
     def print_field(self):
         faller_cells = self.get_faller_cells()
@@ -61,14 +68,14 @@ class DrMario:
                         line += f' {char} '
                 else:
                     if (r, c) in matched_cells:
-                        if cell == 'R' and next_cell == 'Y':
-                            line += f'*R*-Y'
+                        if cell.isupper() and next_cell.isupper():
+                            line += f'*{cell}--{next_cell}*'
                             skip_next = True
                         else:
                             line += f'*{cell}*'
                     else:
-                        if cell == 'R' and next_cell == 'Y':
-                            line += f' R--Y '
+                        if cell.isupper() and next_cell.isupper():
+                            line += f' {cell}--{next_cell} '
                             skip_next = True
                         else:
                             line += f' {cell} '
@@ -261,17 +268,39 @@ class DrMario:
                 self.field[r][c] = ' '
 
     def apply_gravity(self):
+        moved = False
         for c in range(self.cols):
             # Move each piece down only one row per pass_time
             # Start from second-to-last row and move up
             for r in range(self.rows - 2, -1, -1):
-                # Only move uppercase cells (vitamins), not viruses
-                if self.field[r][c].isupper() and self.field[r + 1][c] == ' ':
-                    # Move the cell down one row
+                # Skip if current cell is empty or a virus (lowercase)
+                if self.field[r][c] == ' ' or self.field[r][c].islower():
+                    continue
+                
+                # Check if this is part of a horizontal vitamin pair
+                is_horizontal_pair = False
+                if c + 1 < self.cols and self.field[r][c].isupper() and self.field[r][c + 1].isupper():
+                    is_horizontal_pair = True
+                elif c > 0 and self.field[r][c].isupper() and self.field[r][c - 1].isupper():
+                    # Skip if this is the right part of a pair (left part will handle it)
+                    continue
+                
+                # If it's a horizontal pair and we can move both pieces down
+                if is_horizontal_pair and self.field[r + 1][c] == ' ' and self.field[r + 1][c + 1] == ' ':
+                    # Move both pieces down together
+                    self.field[r + 1][c] = self.field[r][c]
+                    self.field[r + 1][c + 1] = self.field[r][c + 1]
+                    self.field[r][c] = ' '
+                    self.field[r][c + 1] = ' '
+                    moved = True
+                    break
+                # If it's a single piece and we can move it down
+                elif not is_horizontal_pair and self.field[r + 1][c] == ' ':
                     self.field[r + 1][c] = self.field[r][c]
                     self.field[r][c] = ' '
-                    # Only move one piece down one row per column
+                    moved = True
                     break
+        return moved
 
 def parse_line_content(line: str, cols: int) -> str:
     content = line.strip()
@@ -428,12 +457,12 @@ def test_game():
     game = DrMario()
     game.initialize(4, 4)
     
-    # Set initial field contents
+    # Test horizontal vitamin pair falling
     lines = [
         '    ',  # Empty row
-        'R  r',  # R and r
         '    ',  # Empty row
-        'YyYy'   # Row of viruses
+        'R--Y',  # Horizontal vitamin pair
+        ' R r '  # Bottom row with virus
     ]
     game.set_field_contents(lines)
     
@@ -441,13 +470,13 @@ def test_game():
     print("Initial state:")
     game.print_field()
     
-    # First empty input (pass time)
-    print("\nAfter first empty input:")
+    # First pass time
+    print("\nAfter first pass time:")
     game.pass_time()
     game.print_field()
     
-    # Second empty input (pass time)
-    print("\nAfter second empty input:")
+    # Second pass time
+    print("\nAfter second pass time:")
     game.pass_time()
     game.print_field()
 
