@@ -69,7 +69,7 @@ class DrMario:
                 else:
                     if (r, c) in matched_cells:
                         if cell == 'R' and next_cell == 'Y':
-                            line += f'*{cell}*-{next_cell}'
+                            line += f'*{cell}*-{next_cell} '
                             skip_next = True
                         else:
                             line += f'*{cell}*'
